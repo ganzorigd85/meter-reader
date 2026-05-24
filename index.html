@@ -12,6 +12,7 @@
 <meta name="theme-color" content="#0f172a">
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <style>
 
@@ -49,6 +50,7 @@ button{
   color:white;
 }
 
+
 img{
   width:100%;
   margin-top:10px;
@@ -70,6 +72,26 @@ img{
 <h2>Meter Reader</h2>
 
 <input id="meterId" placeholder="Meter ID">
+
+<video
+  id="video"
+  autoplay
+  playsinline
+  style="
+    width:100%;
+    border-radius:10px;
+    margin-top:10px;
+  ">
+</video>
+
+<canvas
+  id="canvas"
+  style="display:none;">
+</canvas>
+
+<button onclick="captureImage()">
+Capture Meter
+</button>
 
 <input
 type="file"
@@ -102,6 +124,57 @@ const API_URL =
 
 let imageBase64 = "";
 
+const video =
+document.getElementById("video");
+
+async function startCamera(){
+
+  const stream =
+    await navigator.mediaDevices
+      .getUserMedia({
+
+        video:{
+          facingMode:"environment"
+        }
+      });
+
+  video.srcObject = stream;
+}
+
+startCamera();
+
+
+function captureImage(){
+
+  const canvas =
+    document.getElementById("canvas");
+
+  const ctx =
+    canvas.getContext("2d");
+
+  canvas.width =
+    video.videoWidth;
+
+  canvas.height =
+    video.videoHeight;
+
+  ctx.drawImage(
+    video,
+    0,
+    0
+  );
+
+  imageBase64 =
+    canvas.toDataURL("image/jpeg");
+
+  document
+    .getElementById("preview")
+    .src = imageBase64;
+
+  setStatus("Captured");
+}
+
+
 function setStatus(text){
   document.getElementById("status").innerText = text;
 }
@@ -129,71 +202,163 @@ document
 async function readOCR(){
 
   if(!imageBase64){
-    alert("Select image first");
+
+    alert("Capture image first");
+
     return;
   }
 
-  setStatus("Processing OCR...");
+  setStatus("AI Processing...");
 
-  const img = document.getElementById("preview");
+  const img =
+    document.getElementById("preview");
 
-  const canvas = document.createElement("canvas");
+  const canvas =
+    document.createElement("canvas");
 
-  const ctx = canvas.getContext("2d");
+  const ctx =
+    canvas.getContext("2d");
 
   canvas.width = img.width;
   canvas.height = img.height;
 
   ctx.drawImage(img,0,0);
 
-  // DISPLAY AREA CROP
-  // хэрэгтэй үед coordinate өөрчилнө
+  // BETTER CROP
 
- const cropX = img.width * 0.05;
-const cropY = img.height * 0.2;
-const cropWidth = img.width * 0.9;
-const cropHeight = img.height * 0.45;
+  const cropX =
+    img.width * 0.05;
 
-  const cropped =
-    ctx.getImageData(
-      cropX,
-      cropY,
-      cropWidth,
-      cropHeight
-    );
+  const cropY =
+    img.height * 0.2;
 
-  const tempCanvas =
+  const cropWidth =
+    img.width * 0.9;
+
+  const cropHeight =
+    img.height * 0.4;
+
+  const cropCanvas =
     document.createElement("canvas");
 
-  tempCanvas.width = cropWidth;
-  tempCanvas.height = cropHeight;
+  cropCanvas.width = cropWidth;
+  cropCanvas.height = cropHeight;
 
-  tempCanvas
-    .getContext("2d")
-    .putImageData(cropped,0,0);
+  const cropCtx =
+    cropCanvas.getContext("2d");
 
-  const croppedImage =
-    tempCanvas.toDataURL();
+  cropCtx.drawImage(
+
+    canvas,
+
+    cropX,
+    cropY,
+
+    cropWidth,
+    cropHeight,
+
+    0,
+    0,
+
+    cropWidth,
+    cropHeight
+  );
+
+  // OPENCV
+
+  let src =
+    cv.imread(cropCanvas);
+
+  let gray =
+    new cv.Mat();
+
+  let thresh =
+    new cv.Mat();
+
+  // grayscale
+
+  cv.cvtColor(
+    src,
+    gray,
+    cv.COLOR_RGBA2GRAY
+  );
+
+  // blur
+
+  cv.GaussianBlur(
+
+    gray,
+    gray,
+
+    new cv.Size(5,5),
+
+    0
+  );
+
+  // threshold
+
+  cv.threshold(
+
+    gray,
+    thresh,
+
+    0,
+    255,
+
+    cv.THRESH_BINARY +
+    cv.THRESH_OTSU
+  );
+
+  cv.imshow(
+    cropCanvas,
+    thresh
+  );
+
+  const processedImage =
+    cropCanvas.toDataURL();
 
   const result =
     await Tesseract.recognize(
 
-      croppedImage,
+      processedImage,
 
       'eng',
 
       {
-        tessedit_char_whitelist:'0123456789'
+
+        tessedit_char_whitelist:
+        '0123456789.',
+
       }
     );
 
-  let text = result.data.text;
+  let text =
+    result.data.text;
 
-text = text.replace(/[^0-9.]/g,'');
+  // CLEANUP
 
-  document.getElementById("reading").value = text;
+  text = text
+    .replace(/O/g,'0')
+    .replace(/B/g,'8')
+    .replace(/S/g,'5');
 
-  setStatus("OCR Complete");
+  text =
+    text.replace(
+      /[^0-9.]/g,
+      ''
+    );
+
+  document
+    .getElementById("reading")
+    .value = text;
+
+  setStatus(
+    "AI OCR Complete"
+  );
+
+  src.delete();
+  gray.delete();
+  thresh.delete();
 }
 
 async function saveData(){
