@@ -1,4 +1,4 @@
-const CACHE_NAME = "meter-cache-v2";
+const CACHE_NAME = "meter-cache-v1";
 
 self.addEventListener("install", event => {
 
