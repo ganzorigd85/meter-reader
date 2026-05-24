@@ -149,10 +149,10 @@ async function readOCR(){
   // DISPLAY AREA CROP
   // хэрэгтэй үед coordinate өөрчилнө
 
-  const cropX = img.width * 0.25;
-  const cropY = img.height * 0.05;
-  const cropWidth = img.width * 0.5;
-  const cropHeight = img.height * 0.18;
+ const cropX = img.width * 0.05;
+const cropY = img.height * 0.2;
+const cropWidth = img.width * 0.9;
+const cropHeight = img.height * 0.45;
 
   const cropped =
     ctx.getImageData(
@@ -189,7 +189,7 @@ async function readOCR(){
 
   let text = result.data.text;
 
-  text = text.replace(/\D/g,'');
+text = text.replace(/[^0-9.]/g,'');
 
   document.getElementById("reading").value = text;
 

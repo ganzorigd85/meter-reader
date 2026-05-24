@@ -1,9 +1,4 @@
-const CACHE_NAME = "meter-cache";
-
-const urlsToCache = [
-  "/",
-  "/index.html"
-];
+const CACHE_NAME = "meter-cache-v2";
 
 self.addEventListener("install", event => {
 
@@ -12,7 +7,10 @@ self.addEventListener("install", event => {
     caches.open(CACHE_NAME)
       .then(cache => {
 
-        return cache.addAll(urlsToCache);
+        return cache.addAll([
+          "./",
+          "./index.html"
+        ]);
       })
   );
 });
