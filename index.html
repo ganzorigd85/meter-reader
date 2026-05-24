@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Meter Reader</title>
+
+<link rel="manifest" href="manifest.json">
+
+<meta name="theme-color" content="#0f172a">
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+
+<style>
+
+body{
+  background:#0f172a;
+  color:white;
+  font-family:Arial;
+  padding:20px;
+}
+
+.card{
+  background:#1e293b;
+  padding:20px;
+  border-radius:20px;
+  max-width:500px;
+  margin:auto;
+}
+
+input,button{
+  width:100%;
+  padding:15px;
+  margin-top:10px;
+  border:none;
+  border-radius:10px;
+  font-size:16px;
+}
+
+input{
+  background:#334155;
+  color:white;
+}
+
+button{
+  background:#2563eb;
+  color:white;
+}
+
+img{
+  width:100%;
+  margin-top:10px;
+  border-radius:10px;
+}
+
+.status{
+  margin-top:15px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<h2>Meter Reader</h2>
+
+<input id="meterId" placeholder="Meter ID">
+
+<input
+type="file"
+accept="image/*"
+capture="environment"
+id="imageInput">
+
+<img id="preview">
+
+<button onclick="readOCR()">
+Read Meter
+</button>
+
+<input id="reading" placeholder="OCR Result">
+
+<button onclick="saveData()">
+Save
+</button>
+
+<div class="status" id="status">
+Ready
+</div>
+
+</div>
+
+<script>
+
+const API_URL =
+"https://script.google.com/macros/s/AKfycbxYYd2UmpgWHROOK7GZv5Rw3e4coj0yEHNOZqnK78ln2w-e6gYir_-juSctN0p-qbUu/exec";
+
+let imageBase64 = "";
+
+function setStatus(text){
+  document.getElementById("status").innerText = text;
+}
+
+document
+.getElementById("imageInput")
+.addEventListener("change", function(e){
+
+  const file = e.target.files[0];
+
+  const reader = new FileReader();
+
+  reader.onload = function(){
+
+    imageBase64 = reader.result;
+
+    document.getElementById("preview").src = imageBase64;
+
+    setStatus("Image Loaded");
+  }
+
+  reader.readAsDataURL(file);
+});
+
+async function readOCR(){
+
+  if(!imageBase64){
+    alert("Select image first");
+    return;
+  }
+
+  setStatus("Processing OCR...");
+
+  const img = document.getElementById("preview");
+
+  const canvas = document.createElement("canvas");
+
+  const ctx = canvas.getContext("2d");
+
+  canvas.width = img.width;
+  canvas.height = img.height;
+
+  ctx.drawImage(img,0,0);
+
+  // DISPLAY AREA CROP
+  // хэрэгтэй үед coordinate өөрчилнө
+
+  const cropX = img.width * 0.25;
+  const cropY = img.height * 0.05;
+  const cropWidth = img.width * 0.5;
+  const cropHeight = img.height * 0.18;
+
+  const cropped =
+    ctx.getImageData(
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight
+    );
+
+  const tempCanvas =
+    document.createElement("canvas");
+
+  tempCanvas.width = cropWidth;
+  tempCanvas.height = cropHeight;
+
+  tempCanvas
+    .getContext("2d")
+    .putImageData(cropped,0,0);
+
+  const croppedImage =
+    tempCanvas.toDataURL();
+
+  const result =
+    await Tesseract.recognize(
+
+      croppedImage,
+
+      'eng',
+
+      {
+        tessedit_char_whitelist:'0123456789'
+      }
+    );
+
+  let text = result.data.text;
+
+  text = text.replace(/\D/g,'');
+
+  document.getElementById("reading").value = text;
+
+  setStatus("OCR Complete");
+}
+
+async function saveData(){
+
+  setStatus("Saving...");
+
+  await fetch(API_URL, {
+
+    method:"POST",
+
+    body:JSON.stringify({
+
+      meter_id:
+      document.getElementById("meterId").value,
+
+      reading:
+      document.getElementById("reading").value
+    })
+  });
+
+  setStatus("Saved");
+
+  alert("Saved to Google Sheets");
+}
+
+if('serviceWorker' in navigator){
+
+  navigator.serviceWorker.register('service-worker.js');
+}
+
+</script>
+
+</body>
+</html>
