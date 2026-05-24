@@ -5,16 +5,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 
-<title>Meter Reader</title>
+<title>Meter Reader Pro</title>
 
 <link rel="manifest" href="manifest.json">
 
 <meta name="theme-color" content="#0f172a">
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
-<script async src="https://docs.opencv.org/4.x/opencv.js"></script>
+
+<script src="https://docs.opencv.org/4.x/opencv.js"></script>
 
 <style>
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
 
 body{
   background:#0f172a;
@@ -29,14 +36,20 @@ body{
   border-radius:20px;
   max-width:500px;
   margin:auto;
+  box-shadow:0 4px 20px rgba(0,0,0,0.3);
+}
+
+h2{
+  text-align:center;
+  margin-bottom:20px;
 }
 
 input,button{
   width:100%;
   padding:15px;
-  margin-top:10px;
+  margin-top:12px;
   border:none;
-  border-radius:10px;
+  border-radius:12px;
   font-size:16px;
 }
 
@@ -48,17 +61,31 @@ input{
 button{
   background:#2563eb;
   color:white;
+  cursor:pointer;
 }
 
+button:hover{
+  opacity:0.9;
+}
 
 img{
   width:100%;
-  margin-top:10px;
-  border-radius:10px;
+  margin-top:12px;
+  border-radius:12px;
+}
+
+#video{
+  width:100%;
+  border-radius:12px;
+  margin-top:12px;
 }
 
 .status{
   margin-top:15px;
+  background:#334155;
+  padding:12px;
+  border-radius:12px;
+  text-align:center;
 }
 
 </style>
@@ -69,24 +96,21 @@ img{
 
 <div class="card">
 
-<h2>Meter Reader</h2>
+<h2>Meter Reader Pro</h2>
 
-<input id="meterId" placeholder="Meter ID">
+<input
+id="meterId"
+placeholder="Meter ID">
 
 <video
-  id="video"
-  autoplay
-  playsinline
-  style="
-    width:100%;
-    border-radius:10px;
-    margin-top:10px;
-  ">
+id="video"
+autoplay
+playsinline>
 </video>
 
 <canvas
-  id="canvas"
-  style="display:none;">
+id="canvas"
+style="display:none;">
 </canvas>
 
 <button onclick="captureImage()">
@@ -105,14 +129,20 @@ id="imageInput">
 Read Meter
 </button>
 
-<input id="reading" placeholder="OCR Result">
+<input
+id="reading"
+placeholder="OCR Result">
 
 <button onclick="saveData()">
 Save
 </button>
 
-<div class="status" id="status">
+<div
+class="status"
+id="status">
+
 Ready
+
 </div>
 
 </div>
@@ -127,22 +157,40 @@ let imageBase64 = "";
 const video =
 document.getElementById("video");
 
+function setStatus(text){
+
+  document
+    .getElementById("status")
+    .innerText = text;
+}
+
 async function startCamera(){
 
-  const stream =
-    await navigator.mediaDevices
-      .getUserMedia({
+  try{
 
-        video:{
-          facingMode:"environment"
-        }
-      });
+    const stream =
+      await navigator
+        .mediaDevices
+        .getUserMedia({
 
-  video.srcObject = stream;
+          video:{
+            facingMode:"environment"
+          }
+        });
+
+    video.srcObject = stream;
+
+    setStatus("Camera Ready");
+
+  }catch(error){
+
+    console.log(error);
+
+    setStatus("Camera Error");
+  }
 }
 
 startCamera();
-
 
 function captureImage(){
 
@@ -165,18 +213,16 @@ function captureImage(){
   );
 
   imageBase64 =
-    canvas.toDataURL("image/jpeg");
+    canvas.toDataURL(
+      "image/jpeg",
+      0.7
+    );
 
   document
     .getElementById("preview")
     .src = imageBase64;
 
-  setStatus("Captured");
-}
-
-
-function setStatus(text){
-  document.getElementById("status").innerText = text;
+  setStatus("Image Captured");
 }
 
 document
@@ -185,16 +231,25 @@ document
 
   const file = e.target.files[0];
 
-  const reader = new FileReader();
-
-  reader.onload = function(){
-
-    imageBase64 = reader.result;
-
-    document.getElementById("preview").src = imageBase64;
-
-    setStatus("Image Loaded");
+  if(!file){
+    return;
   }
+
+  const reader =
+    new FileReader();
+
+  reader.onload =
+    function(){
+
+      imageBase64 =
+        reader.result;
+
+      document
+        .getElementById("preview")
+        .src = imageBase64;
+
+      setStatus("Image Loaded");
+    }
 
   reader.readAsDataURL(file);
 });
@@ -208,157 +263,218 @@ async function readOCR(){
     return;
   }
 
-  setStatus("AI Processing...");
+  setStatus("AI OCR Processing...");
 
-  const img =
-    document.getElementById("preview");
+  try{
 
-  const canvas =
-    document.createElement("canvas");
+    const img =
+      document.getElementById("preview");
 
-  const ctx =
-    canvas.getContext("2d");
+    const canvas =
+      document.createElement("canvas");
 
-  canvas.width = img.width;
-  canvas.height = img.height;
+    const ctx =
+      canvas.getContext("2d");
 
-  ctx.drawImage(img,0,0);
+    canvas.width =
+      img.width;
 
-  // BETTER CROP
+    canvas.height =
+      img.height;
 
-  const cropX =
-    img.width * 0.05;
-
-  const cropY =
-    img.height * 0.2;
-
-  const cropWidth =
-    img.width * 0.9;
-
-  const cropHeight =
-    img.height * 0.4;
-
-  const cropCanvas =
-    document.createElement("canvas");
-
-  cropCanvas.width = cropWidth;
-  cropCanvas.height = cropHeight;
-
-  const cropCtx =
-    cropCanvas.getContext("2d");
-
-  cropCtx.drawImage(
-
-    canvas,
-
-    cropX,
-    cropY,
-
-    cropWidth,
-    cropHeight,
-
-    0,
-    0,
-
-    cropWidth,
-    cropHeight
-  );
-
-  // OPENCV
-
-  let src =
-    cv.imread(cropCanvas);
-
-  let gray =
-    new cv.Mat();
-
-  let thresh =
-    new cv.Mat();
-
-  // grayscale
-
-  cv.cvtColor(
-    src,
-    gray,
-    cv.COLOR_RGBA2GRAY
-  );
-
-  // blur
-
-  cv.GaussianBlur(
-
-    gray,
-    gray,
-
-    new cv.Size(5,5),
-
-    0
-  );
-
-  // threshold
-
-  cv.threshold(
-
-    gray,
-    thresh,
-
-    0,
-    255,
-
-    cv.THRESH_BINARY +
-    cv.THRESH_OTSU
-  );
-
-  cv.imshow(
-    cropCanvas,
-    thresh
-  );
-
-  const processedImage =
-    cropCanvas.toDataURL();
-
-  const result =
-    await Tesseract.recognize(
-
-      processedImage,
-
-      'eng',
-
-      {
-
-        tessedit_char_whitelist:
-        '0123456789.',
-
-      }
+    ctx.drawImage(
+      img,
+      0,
+      0
     );
 
-  let text =
-    result.data.text;
+    // BETTER DISPLAY CROP
 
-  // CLEANUP
+    const cropX =
+      img.width * 0.05;
 
-  text = text
-    .replace(/O/g,'0')
-    .replace(/B/g,'8')
-    .replace(/S/g,'5');
+    const cropY =
+      img.height * 0.2;
 
-  text =
-    text.replace(
-      /[^0-9.]/g,
-      ''
+    const cropWidth =
+      img.width * 0.9;
+
+    const cropHeight =
+      img.height * 0.4;
+
+    const cropCanvas =
+      document.createElement("canvas");
+
+    cropCanvas.width =
+      cropWidth;
+
+    cropCanvas.height =
+      cropHeight;
+
+    const cropCtx =
+      cropCanvas.getContext("2d");
+
+    cropCtx.drawImage(
+
+      canvas,
+
+      cropX,
+      cropY,
+
+      cropWidth,
+      cropHeight,
+
+      0,
+      0,
+
+      cropWidth,
+      cropHeight
     );
 
-  document
-    .getElementById("reading")
-    .value = text;
+    // OpenCV Processing
 
-  setStatus(
-    "AI OCR Complete"
-  );
+    let src =
+      cv.imread(cropCanvas);
 
-  src.delete();
-  gray.delete();
-  thresh.delete();
+    let gray =
+      new cv.Mat();
+
+    let thresh =
+      new cv.Mat();
+
+    let resized =
+      new cv.Mat();
+
+    // grayscale
+
+    cv.cvtColor(
+
+      src,
+
+      gray,
+
+      cv.COLOR_RGBA2GRAY
+    );
+
+    // blur
+
+    cv.GaussianBlur(
+
+      gray,
+
+      gray,
+
+      new cv.Size(5,5),
+
+      0
+    );
+
+    // contrast boost
+
+    cv.equalizeHist(
+      gray,
+      gray
+    );
+
+    // threshold
+
+    cv.threshold(
+
+      gray,
+
+      thresh,
+
+      0,
+
+      255,
+
+      cv.THRESH_BINARY +
+      cv.THRESH_OTSU
+    );
+
+    // resize for OCR
+
+    cv.resize(
+
+      thresh,
+
+      resized,
+
+      new cv.Size(
+        thresh.cols * 3,
+        thresh.rows * 3
+      ),
+
+      0,
+      0,
+
+      cv.INTER_CUBIC
+    );
+
+    cv.imshow(
+      cropCanvas,
+      resized
+    );
+
+    const processedImage =
+      cropCanvas.toDataURL();
+
+    // OCR
+
+    const result =
+      await Tesseract.recognize(
+
+        processedImage,
+
+        'eng',
+
+        {
+
+          logger:m =>
+            console.log(m),
+
+          tessedit_pageseg_mode:7,
+
+          tessedit_char_whitelist:
+          '0123456789.'
+        }
+      );
+
+    let text =
+      result.data.text;
+
+    // AI cleanup
+
+    text = text
+      .replace(/O/g,'0')
+      .replace(/B/g,'8')
+      .replace(/S/g,'5');
+
+    text =
+      text.replace(
+        /[^0-9.]/g,
+        ''
+      );
+
+    document
+      .getElementById("reading")
+      .value = text;
+
+    setStatus(
+      "OCR Complete"
+    );
+
+    src.delete();
+    gray.delete();
+    thresh.delete();
+    resized.delete();
+
+  }catch(error){
+
+    console.log(error);
+
+    setStatus("OCR Failed");
+  }
 }
 
 async function saveData(){
@@ -367,33 +483,41 @@ async function saveData(){
 
     setStatus("Saving...");
 
-    const response = await fetch(API_URL, {
+    const response =
+      await fetch(API_URL, {
 
-      method:"POST",
+        method:"POST",
 
-      headers:{
-        "Content-Type":"text/plain"
-      },
+        headers:{
+          "Content-Type":"text/plain"
+        },
 
-      body:JSON.stringify({
+        body:JSON.stringify({
 
-        meter_id:
-        document.getElementById("meterId").value,
+          meter_id:
+          document
+            .getElementById("meterId")
+            .value,
 
-        reading:
-        document.getElementById("reading").value,
+          reading:
+          document
+            .getElementById("reading")
+            .value,
 
-        image:imageBase64
-      })
-    });
+          image:imageBase64
+        })
+      });
 
-    const result = await response.text();
+    const result =
+      await response.text();
 
     console.log(result);
 
     setStatus("Saved");
 
-    alert("Saved to Google Sheets");
+    alert(
+      "Saved to Google Sheets"
+    );
 
   }catch(error){
 
@@ -405,9 +529,15 @@ async function saveData(){
   }
 }
 
+// PWA
+
 if('serviceWorker' in navigator){
 
-  navigator.serviceWorker.register('service-worker.js');
+  navigator
+    .serviceWorker
+    .register(
+      'service-worker.js'
+    );
 }
 
 </script>
