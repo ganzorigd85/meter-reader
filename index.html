@@ -198,25 +198,46 @@ async function readOCR(){
 
 async function saveData(){
 
-  setStatus("Saving...");
+  try{
 
-  await fetch(API_URL, {
+    setStatus("Saving...");
 
-    method:"POST",
+    const response = await fetch(API_URL, {
 
-    body:JSON.stringify({
+      method:"POST",
 
-      meter_id:
-      document.getElementById("meterId").value,
+      headers:{
+        "Content-Type":"text/plain"
+      },
 
-      reading:
-      document.getElementById("reading").value
-    })
-  });
+      body:JSON.stringify({
 
-  setStatus("Saved");
+        meter_id:
+        document.getElementById("meterId").value,
 
-  alert("Saved to Google Sheets");
+        reading:
+        document.getElementById("reading").value,
+
+        image:imageBase64
+      })
+    });
+
+    const result = await response.text();
+
+    console.log(result);
+
+    setStatus("Saved");
+
+    alert("Saved to Google Sheets");
+
+  }catch(error){
+
+    console.log(error);
+
+    setStatus("Save Failed");
+
+    alert("Save error");
+  }
 }
 
 if('serviceWorker' in navigator){
